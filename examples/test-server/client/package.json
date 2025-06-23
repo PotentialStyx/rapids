@@ -1,0 +1,16 @@
+{
+  "name": "test-client",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@msgpack/msgpack": "^3.1.2",
+    "@replit/river": "^0.209.1",
+    "@sinclair/typebox": "^0.34.35"
+  }
+}
