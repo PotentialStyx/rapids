@@ -6,6 +6,12 @@ license = "AGPL-3.0-only"
 authors = ["PotentialStyx <62217716+PotentialStyx@users.noreply.github.com>"]
 repository = "https://github.com/PotentialStyx/rapids-rs/"
 description = "A WIP implementation of https://github.com/replit/river in rust"
+exclude = [
+    "/.vscode",
+    "/benches",
+    "/examples",
+    "/docwatch.sh",
+]
 
 [dependencies]
 anyhow = "1.0.98"

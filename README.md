@@ -1,3 +1,5 @@
+![Crates.io Version](https://img.shields.io/crates/v/rapids-rs)
+
 # Rapids.rs
 An alpha server implementation of the [River](https://github.com/replit/river) protocol in rust.
 
