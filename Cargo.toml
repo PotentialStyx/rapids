@@ -1,6 +1,6 @@
 [package]
 name = "rapids-rs"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 license = "AGPL-3.0-only"
 authors = ["PotentialStyx <62217716+PotentialStyx@users.noreply.github.com>"]
@@ -9,7 +9,6 @@ description = "A WIP implementation of https://github.com/replit/river in rust"
 exclude = [
     "/.vscode",
     "/benches",
-    "/examples",
     "/docwatch.sh",
 ]
 
