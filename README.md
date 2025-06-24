@@ -1,4 +1,4 @@
-![Crates.io Version](https://img.shields.io/crates/v/rapids-rs)
+[![Crates.io Version](https://img.shields.io/crates/v/rapids-rs)](https://crates.io/crates/rapids-rs) [![docs.rs](https://img.shields.io/docsrs/rapids-rs)](https://docs.rs/rapids-rs/) [![License: AGPL-3.0-only](https://img.shields.io/badge/License-AGPL--3.0--only-93defa)](https://spdx.org/licenses/AGPL-3.0-only.html)
 
 # Rapids.rs
 An alpha server implementation of the [River](https://github.com/replit/river) protocol in rust.
