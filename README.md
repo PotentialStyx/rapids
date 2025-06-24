@@ -8,7 +8,7 @@ An alpha server implementation of the [River](https://github.com/replit/river) p
 | --- | --- | --- |
 | River Server | ✔️ | |
 | River Client | ❌ | |
-| Pluggable Codecs | ❔ | While JSON and MessagePack codecs are provided, custom codecs are not yet supported |
+| Pluggable Codecs | ✔️ | While JSON and MessagePack codecs are provided as well as support for custom codecs |
 | Pluggable Transports | ❌ | WebSocket support is hardcoded in with no other transport options yet |
 | `rpc` procedures | ✔️ | |
 | `upload` procedures | ✔️ | |
