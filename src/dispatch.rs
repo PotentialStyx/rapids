@@ -281,6 +281,7 @@ impl<H: ServiceHandler + 'static, C: Codec + 'static> RiverServer<H, C> {
         }
     }
 
+    #[allow(clippy::too_many_lines)]
     async fn event_loop(
         self: Arc<Self>,
         mut socket: WebSocket,
@@ -289,6 +290,7 @@ impl<H: ServiceHandler + 'static, C: Codec + 'static> RiverServer<H, C> {
     ) -> Result<()> {
         let _ = addr;
         let mut streams: HashMap<String, StreamInfo> = HashMap::new();
+        let mut seq = 0;
 
         let (send, recv) = kanal::unbounded_async();
 
@@ -387,8 +389,21 @@ impl<H: ServiceHandler + 'static, C: Codec + 'static> RiverServer<H, C> {
                         streams.remove(&ipc.stream_id);
                     }
 
+                    let mut message = ipc.message;
+
+                    match &mut message {
+                        TransportMessage::Control(msg) => {
+                            msg.header.seq = seq;
+                        },
+                        TransportMessage::Request(msg) => {
+                            msg.header.seq = seq;
+                        },
+                    }
+
+                    seq += 1;
+
                     let to_send = WsMessage::Binary(Bytes::from_owner(
-                        self.codec.encode_to_vec(&ipc.message)?,
+                        self.codec.encode_to_vec(&message)?,
                     ));
 
                     socket.send(to_send).await?;
