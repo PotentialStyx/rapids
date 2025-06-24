@@ -100,7 +100,7 @@ fn criterion_benchmark(c: &mut Criterion) {
             },
             payload: Control::HandshakeResponse(HandshakeResponse {
                 status: RiverResult::<HandshakeResponseOk, String>::Err {
-                    reason: generate_id(),
+                    message: generate_id(),
                     code: generate_id(),
                 }
                 .into(),

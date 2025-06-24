@@ -5,7 +5,7 @@ use kanal::{AsyncReceiver, AsyncSender};
 use rapids_rs::{
     codecs::BinaryCodec,
     dispatch::{RiverServer, ServiceHandler},
-    types::{RPCMetadata, TransportRequestMessage},
+    types::{IncomingMessage, OutgoingMessage, RPCMetadata},
 };
 
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
@@ -78,15 +78,14 @@ impl ServiceHandler for TestServiceHandler {
         self.description.clone()
     }
 
-    // TODO: proper error handling
     async fn invoke_rpc(
         &self,
         service: String,
         procedure: String,
         metadata: RPCMetadata,
-        channel: AsyncSender<TransportRequestMessage>,
+        channel: AsyncSender<OutgoingMessage>,
         payload: serde_json::Value,
-        recv: AsyncReceiver<rapids_rs::types::IPCMessage>,
+        recv: AsyncReceiver<IncomingMessage>,
     ) {
         match service.as_str() {
             "example" => {
@@ -97,30 +96,37 @@ impl ServiceHandler for TestServiceHandler {
                         "resetCount" => service.reset_count(payload, &metadata).await,
                         "streamAdd" => service.stream_add(payload, recv, &metadata).await,
                         _ => {
-                            unreachable!()
+                            unreachable!(
+                                "Dispatcher guarantees only correct procedures are passed along"
+                            )
                         }
                     };
 
-                    let message = match result {
+                    let message = match &result {
                         Ok(result) => {
                             serde_json::json!({ "ok": true, "payload": result })
                         }
                         Err(err) => {
-                            // TODO: confirm this is an ok error code to send
-                            serde_json::json!({ "ok": false, "code": "UNCAUGHT_ERROR", "reason": err.to_string() })
+                            serde_json::json!({
+                                "ok": false,
+                                "payload": {"code": "UNCAUGHT_ERROR", "message": err.to_string()}
+                            })
                         }
                     };
 
                     channel
-                        .send(<TestServiceHandler as ServiceHandler>::payload_to_msg(
-                            message, &metadata, true,
+                        .send(Self::payload_to_msg(
+                            message,
+                            &metadata,
+                            result.is_ok(),
+                            result.is_err(),
                         ))
                         .await
                         .expect("TODO: handle this");
                 });
             }
             _ => {
-                unreachable!()
+                unreachable!("Dispatcher guarantees only correct services are passed along")
             }
         }
     }

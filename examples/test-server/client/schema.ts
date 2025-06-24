@@ -1,5 +1,8 @@
 import { createServiceSchema, Procedure, Ok } from '@replit/river';
+import { BinaryCodec } from '@replit/river/codec';
 import { Type } from '@sinclair/typebox';
+
+export const CODEC = BinaryCodec;
 
 export const ServiceSchema = createServiceSchema();
 
@@ -13,6 +16,9 @@ export const ExampleService = ServiceSchema.define(
             responseData: Type.Object({ result: Type.Number() }),
             async handler({ ctx, reqInit: { n } }) {
                 ctx.state.count += n;
+                if (n == 6) {
+                    throw new Error("test");
+                }
                 return Ok({ result: ctx.state.count });
             },
         }),

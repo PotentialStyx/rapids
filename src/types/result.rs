@@ -29,7 +29,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug)]
 pub enum RiverResult<T, E: ToString> {
     Ok(T),
-    Err { reason: String, code: E },
+    Err { message: String, code: E },
 }
 
 impl<T, E: TryFrom<String, Error = E2> + ToString, E2: Display> TryFrom<RiverResultInternal<T>>
@@ -46,10 +46,10 @@ impl<T, E: TryFrom<String, Error = E2> + ToString, E2: Display> TryFrom<RiverRes
             }
         } else {
             if let Some(code) = result.code {
-                if let Some(reason) = result.reason {
+                if let Some(message) = result.message {
                     return Ok(RiverResult::Err {
                         code: code.try_into().map_err(|e| format_err!("{e}"))?,
-                        reason,
+                        message,
                     });
                 }
             }
@@ -72,7 +72,7 @@ impl<T, E: TryFrom<String, Error = E2> + ToString, E2: Display> TryFrom<RiverRes
 #[serde(rename_all = "camelCase")]
 pub struct RiverResultInternal<T> {
     ok: bool,
-    reason: Option<String>,
+    message: Option<String>,
     code: Option<String>,
     #[serde(flatten)]
     inner: Option<T>,
@@ -83,13 +83,16 @@ impl<T, E: ToString> From<RiverResult<T, E>> for RiverResultInternal<T> {
         match result {
             RiverResult::Ok(val) => RiverResultInternal {
                 ok: true,
-                reason: None,
+                message: None,
                 code: None,
                 inner: Some(val),
             },
-            RiverResult::Err { reason, code } => RiverResultInternal {
+            RiverResult::Err {
+                message: reason,
+                code,
+            } => RiverResultInternal {
                 ok: false,
-                reason: Some(reason),
+                message: Some(reason),
                 code: Some(code.to_string()),
                 inner: None,
             },

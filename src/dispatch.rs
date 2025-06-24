@@ -10,8 +10,8 @@ use crate::{
     codecs::Codec,
     types::{
         Control, HandshakeError, HandshakeRequest, HandshakeResponse, HandshakeResponseOk, Header,
-        HeaderID, IPCMessage, RPCMetadata, RequestInner, RiverResult, StreamInfo,
-        TransportControlMessage, TransportRequestMessage,
+        HeaderID, IncomingMessage, OutgoingMessage, RPCMetadata, RequestInner, RiverResult,
+        StreamInfo, TransportControlMessage, TransportMessage, TransportRequestMessage,
     },
     utils::generate_id,
 };
@@ -57,9 +57,9 @@ pub trait ServiceHandler: Send + Sync {
         service: String,
         procedure: String,
         metadata: RPCMetadata,
-        channel: AsyncSender<TransportRequestMessage>,
+        channel: AsyncSender<OutgoingMessage>,
         payload: serde_json::Value,
-        recv: AsyncReceiver<IPCMessage>,
+        recv: AsyncReceiver<IncomingMessage>,
     ) -> impl std::future::Future<Output = ()> + Send + Sync;
 
     /// Helper method that converts a payload into a [`TransportRequestMessage`]
@@ -68,8 +68,9 @@ pub trait ServiceHandler: Send + Sync {
     fn payload_to_msg(
         payload: serde_json::Value,
         metadata: &RPCMetadata,
-        close: bool,
-    ) -> TransportRequestMessage {
+        mut close: bool,
+        error: bool,
+    ) -> OutgoingMessage {
         // TODO: better way to log?
         debug!(
             stream_id = metadata.stream_id,
@@ -78,17 +79,37 @@ pub trait ServiceHandler: Send + Sync {
             payload
         );
 
-        TransportRequestMessage {
+        let mut control_flags = 0;
+
+        if close {
+            control_flags |= 0b1000;
+        }
+
+        if error {
+            control_flags |= 0b0100;
+            close = true;
+        }
+
+        let message = TransportMessage::Request(TransportRequestMessage {
             header: Header {
                 stream_id: metadata.stream_id.clone(),
-                control_flags: if close { 0b1000 } else { 0 },
+                control_flags,
                 id: generate_id(),
                 to: metadata.client_id.clone(),
                 from: "SERVER".to_string(),
                 seq: metadata.seq,
+                // TODO: ack setting should be dealt with by dispatch
                 ack: 1,
             },
             inner: RequestInner::Request { payload },
+        });
+
+        debug!(?message, "Bruh");
+
+        OutgoingMessage {
+            message,
+            stream_id: metadata.stream_id.clone(),
+            close,
         }
     }
 }
@@ -176,7 +197,7 @@ impl<H: ServiceHandler + 'static, C: Codec + 'static> RiverServer<H, C> {
                         },
                         payload: Control::HandshakeResponse(HandshakeResponse {
                             status: RiverResult::<HandshakeResponseOk, HandshakeError>::Err {
-                                reason: format!("Expected version {}", crate::PROTOCOL_VERSION),
+                                message: format!("Expected version {}", crate::PROTOCOL_VERSION),
                                 code: HandshakeError::ProtocolVersionMismatch,
                             }
                             .into(),
@@ -245,10 +266,9 @@ impl<H: ServiceHandler + 'static, C: Codec + 'static> RiverServer<H, C> {
                             if let Some(stream_info) = streams.get(&stream_id) {
                                 let data: TransportRequestMessage = self.codec.decode_slice(&data)?;
                                 if data.header.control_flags & 0b1000 == 0b1000 {
-                                    stream_info.messenger.send(IPCMessage::Close).await?;
-                                    streams.remove(&stream_id);
+                                    stream_info.messenger.send(IncomingMessage::Close).await?;
                                 } else if let RequestInner::Request { payload } = data.inner {
-                                    stream_info.messenger.send(IPCMessage::Request(payload)).await?;
+                                    stream_info.messenger.send(IncomingMessage::Request(payload)).await?;
                                 } else {
                                     error!("Existing stream but init message?");
                                 }
@@ -289,7 +309,7 @@ impl<H: ServiceHandler + 'static, C: Codec + 'static> RiverServer<H, C> {
                             info!(client_id, "Client Disconnected");
                             for (key, entry) in streams.drain() {
                                 debug!(stream_id = key, client_id, "Closing stream due to disconnect");
-                                entry.messenger.send(IPCMessage::ForceClose).await?;
+                                entry.messenger.send(IncomingMessage::ForceClose).await?;
                             }
                             break;
                         },
@@ -298,9 +318,16 @@ impl<H: ServiceHandler + 'static, C: Codec + 'static> RiverServer<H, C> {
                         }
                     }
                 }
-                message = recv.recv() => {
+                ipc = recv.recv() => {
+                    let ipc = ipc?;
+
+                    if ipc.close {
+                        debug!(stream_id = ipc.stream_id, "Stream Closed");
+                        streams.remove(&ipc.stream_id);
+                    }
+
                     let to_send = WsMessage::Binary(Bytes::from_owner(
-                        self.codec.encode_to_vec(&message?)?,
+                        self.codec.encode_to_vec(&ipc.message)?,
                     ));
 
                     socket.send(to_send).await?;

@@ -1,6 +1,6 @@
 //! Full River message representations
 //!
-//! # Why are there multiple TransportMessage structs?
+//! # Why are there multiple transport message structs?
 //! Due to how the River protocol was written, the payload
 //! can either have a tagged type (like with control messages),
 //! or be completely protocol defined (which sometimes
@@ -10,6 +10,12 @@
 //! same struct that serde can properly interpret, hence
 //! multiple structs that the dispatcher can figure out
 //! which to use.
+//!
+//! # Which transport message type should I use?
+//! [`TransportMessage`] is likely what you will want as it
+//! allows dealing with both [`TransportControlMessage`] and
+//! [`TransportRequestMessage`]. It is also the type sent
+//! from `procedure -> dispatch`
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -41,6 +47,17 @@ pub struct HeaderID {
     pub control_flags: i32,
     pub seq: i32,
     pub ack: i32,
+}
+
+/// Generic transport message
+///
+/// See [`TransportControlMessage`], [`TransportRequestMessage`], and
+/// [`message_types`](super::message_types).
+#[derive(Deserialize, Serialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum TransportMessage {
+    Control(TransportControlMessage),
+    Request(TransportRequestMessage),
 }
 
 /// Full `Control` message representation

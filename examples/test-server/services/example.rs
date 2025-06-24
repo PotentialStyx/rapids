@@ -2,9 +2,10 @@ use std::sync::atomic::{AtomicI64, Ordering};
 
 use kanal::AsyncReceiver;
 
-use rapids_rs::types::{IPCMessage, RPCMetadata};
+use rapids_rs::types::{IncomingMessage, RPCMetadata};
 
 use super::ServiceImpl;
+use anyhow::format_err;
 
 pub struct Service {
     state: AtomicI64,
@@ -35,6 +36,9 @@ impl Service {
         let res = self.state.fetch_add(amt, Ordering::SeqCst) + amt;
 
         let return_payload = serde_json::json!({"result": res });
+        if amt == 6 {
+            return Err(format_err!("test"));
+        }
 
         Ok(return_payload)
     }
@@ -57,11 +61,11 @@ impl Service {
     pub async fn stream_add(
         &self,
         _: serde_json::Value,
-        recv: AsyncReceiver<IPCMessage>,
+        recv: AsyncReceiver<IncomingMessage>,
         _metadata: &RPCMetadata,
     ) -> anyhow::Result<serde_json::Value> {
         // TODO: deal with force close
-        while let Ok(IPCMessage::Request(value)) = recv.recv().await {
+        while let Ok(IncomingMessage::Request(value)) = recv.recv().await {
             let amt = value
                 .as_object()
                 .unwrap()

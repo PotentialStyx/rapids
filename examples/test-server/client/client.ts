@@ -1,8 +1,7 @@
 import { WebSocketClientTransport } from '@replit/river/transport/ws/client';
 import { createClient, type Client } from '@replit/river';
 import { WebSocket } from 'ws';
-import { services } from './schema';
-import { BinaryCodec } from '@replit/river/codec';
+import { CODEC, services } from './schema';
 import { customAlphabet } from 'nanoid';
 
 const alphabet = customAlphabet(
@@ -18,7 +17,6 @@ const ws = new WebSocket('ws://localhost:8080/delta');
 ws._send = ws.send
 
 const decoder = new TextDecoder();
-const CODEC = BinaryCodec;
 
 ws.send = (...args) => {
     // @ts-ignore
@@ -58,6 +56,13 @@ const transport = new WebSocketClientTransport(
     { codec: CODEC }
 );
 
+transport.bindLogger((msg, ctx, level) => {
+    if (level == "warn" || level == "error") {
+        debugger;
+        console.warn(`[RIVER: ${level}]`, msg, ctx);
+    }
+});
+
 
 
 console.info("River client built");
@@ -78,7 +83,9 @@ console.info("River client connected");
 
     if (result.ok) {
         const msg = result.payload;
-        console.info("Recieved: " + msg.result);
+        console.info(`Recieved: ${msg.result}`);
+    } else {
+        console.error("Recieved error", result.payload)
     }
 }
 
@@ -89,7 +96,9 @@ console.info("River client connected");
 
     if (result.ok) {
         const msg = result.payload;
-        console.info("Recieved: " + msg.result);
+        console.info(`Recieved: ${msg.result}`);
+    } else {
+        console.error("Recieved error", result.payload)
     }
 }
 
@@ -100,6 +109,8 @@ console.info("River client connected");
     if (result.ok) {
         const msg = result.payload;
         console.info("Count reset");
+    } else {
+        console.error("Recieved error", result.payload)
     }
 }
 
@@ -118,7 +129,8 @@ console.info("River client connected");
 
     if (result.ok) {
         const msg = result.payload;
-        console.info("Recieved: " + msg.result);
+        console.info(`Recieved: ${msg.result}`);
+    } else {
+        console.error("Recieved error", result.payload)
     }
-
 }
