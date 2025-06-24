@@ -28,8 +28,29 @@ use serde::{Deserialize, Serialize};
 /// page for the [`result`](super::result) module.
 #[derive(Clone, Debug)]
 pub enum RiverResult<T, E: ToString> {
+    /// Contains the success value
     Ok(T),
-    Err { message: String, code: E },
+    /// Contains the error value
+    Err {
+        /// The associated error message
+        message: String,
+        /// The error code
+        code: E,
+    },
+}
+
+impl<T, E: ToString> RiverResult<T, E> {
+    /// Returns `true` if the result is [`Ok`](RiverResult::Ok).
+    #[must_use]
+    pub const fn is_ok(&self) -> bool {
+        matches!(self, Self::Ok(..))
+    }
+
+    /// Returns `true` if the result is [`Err`](RiverResult::Err).
+    #[must_use]
+    pub const fn is_err(&self) -> bool {
+        matches!(self, Self::Err { .. })
+    }
 }
 
 impl<T, E: TryFrom<String, Error = E2> + ToString, E2: Display> TryFrom<RiverResultInternal<T>>

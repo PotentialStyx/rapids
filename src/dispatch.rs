@@ -118,7 +118,7 @@ impl<H: ServiceHandler + 'static, C: Codec + 'static> RiverServer<H, C> {
     /// Creates a new RiverServer with default settings.
     ///
     /// Heartbeats are sent every second, if this needs to be changed
-    /// use [`RiverServer::new_with_heartbeat_interval`](new_with_heartbeat_interval).
+    /// use [`RiverServer::new_with_heartbeat_interval`](Self::new_with_heartbeat_interval).
     pub fn new(codec: C, handler: H) -> Self {
         RiverServer {
             codec,
@@ -343,7 +343,6 @@ impl<H: ServiceHandler + 'static, C: Codec + 'static> RiverServer<H, C> {
                                     // Only add stream if it is opened and not immediately closed
                                     if data.header.control_flags & 0b01010 == 0b00010 {
                                         streams.insert(header_id.stream_id, StreamInfo {
-                                            stream_id: stream_id.clone(),
                                             opening_seq: header_id.seq,
                                             messenger: stream_send
                                         });

@@ -32,10 +32,18 @@ pub enum Control {
 #[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct HandshakeRequest {
+    /// Expected protocol version, see [`rapids_rs::PROTOCOL_VERSION`](crate::PROTOCOL_VERSION) for the current protocol
+    /// version rapids.rs supports.
     pub protocol_version: ProtocolVersion,
+    /// Connection session, used for reconnects
     pub session_id: String,
+    /// Metadata used for transparent reconnects
     pub expected_session_state: ExpectedSessionState,
-    pub metadata: Option<serde_json::Value>,
+    /// Optional metadata sent from the client
+    ///
+    /// As rapids.rs does not yet support custom handlers/middleware on connection,
+    /// metadata passed in the handshake by a client is currently unreadable.
+    pub metadata: Option<serde_json::Value>, // TODO: metadata as generic?
 }
 
 /// First message sent from <strong>`server -> client`</strong> when connection is opened.
@@ -44,14 +52,17 @@ pub struct HandshakeRequest {
 #[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct HandshakeResponse {
-    /// Use [`RiverResult<HandshakeResponseOk, HandshakeError>`](super::result::RiverResult) and [`Into::into`] to construct this field
+    /// See the [`result`](super::result) page for how to construct a [`RiverResultInternal`]
     pub status: RiverResultInternal<HandshakeResponseOk>,
 }
 
-/// When a client has sent a valid handshake, their `session_id` is sent back.
+/// Response to a valid handshake
+///
+/// When a handshake is completed successfully the `session_id` is sent back to the client.
 #[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct HandshakeResponseOk {
+    /// The accepted `session_id`
     pub session_id: String,
 }
 
@@ -148,6 +159,8 @@ impl Display for ProtocolVersion {
 #[derive(Serialize, Deserialize, Copy, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ExpectedSessionState {
+    /// The next `seq` that the client expects from the server.
     pub next_expected_seq: i64,
+    /// The next `ack` that the client expects from the server.
     pub next_sent_seq: i64,
 }

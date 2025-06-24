@@ -1,3 +1,5 @@
+#![allow(missing_docs)] // TODO: finish documentation and remove this
+
 //! Full River message representations
 //!
 //! # Why are there multiple transport message structs?

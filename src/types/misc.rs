@@ -1,4 +1,4 @@
-//! Miscellaneous types used within Rapids.rs
+//! Miscellaneous types used within rapids.rs
 
 use kanal::AsyncSender;
 
@@ -6,8 +6,9 @@ use crate::types::TransportMessage;
 
 /// Used by the dispatcher to associate a `stream_id` with the needed metadata
 pub struct StreamInfo {
-    pub stream_id: String,
+    /// The `seq` of the initial message of the stream
     pub opening_seq: i32,
+    /// Channel to communicate with ongoing the procedure task
     pub messenger: AsyncSender<IncomingMessage>,
 }
 
@@ -23,14 +24,20 @@ pub enum IncomingMessage {
 
 /// General information needed by procedure handlers
 pub struct RPCMetadata {
+    /// The `stream_id` of the invoked procedure
     pub stream_id: String,
+    /// The id of the client who invoked the procedure
     pub client_id: String,
+    /// The `seq` of the initial message of the stream
     pub seq: i32,
 }
 
 /// Sent from `procedure -> dispatcher`
 pub struct OutgoingMessage {
+    /// Message data to send
     pub message: TransportMessage,
+    /// The id of the stream that this message belongs to
     pub stream_id: String,
+    /// Indicates if this is the last message of the stream
     pub close: bool,
 }

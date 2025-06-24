@@ -1,4 +1,4 @@
-#![warn(clippy::pedantic)]
+#![warn(clippy::pedantic, missing_docs)]
 #![allow(clippy::doc_markdown)]
 #![doc = include_str!("../README.md")]
 

@@ -1,3 +1,5 @@
+#![allow(missing_docs)] // TODO: finish documentation and remove this
+
 //! # Built-in codecs
 //! - JSON: [`NaiveCodec`]
 //! - MessagePack: [`BinaryCodec`]
