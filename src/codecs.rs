@@ -5,21 +5,12 @@
 //! ## What does a codec do?
 //! Codecs are used to transform messages into and from their
 //! over the wire representation.
-//!
-//! ## Implementing your own codec
-//! While the [`Codec`] trait is relatively simple to implement,
-//! there is no purpose of doing so at the moment.
-//!
-//! With how the dispatcher is currently structured, all services
-//! require a [`DynCodec`], which only supports [`NaiveCodec`] and
-//! [`BinaryCodec`] at the moment. However, in the future custom
-//! codecs will be supported.
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 #[allow(clippy::missing_errors_doc)]
-pub trait Codec {
+pub trait Codec: Send + Sync + Copy {
     fn decode_slice<'a, T>(&self, v: &'a [u8]) -> Result<T>
     where
         T: Deserialize<'a>;
@@ -74,11 +65,17 @@ impl Codec for BinaryCodec {
 
 /// An enum that represents any built-in codec
 ///
+/// ⚠️ This enum will likely be deprecated and removed in the
+/// future.
+///
 /// # Why does this exist?
-/// the [`Codec`] trait does not supporting dyn boxing, and
-/// the procedure/service implementation has not been setup
-/// to use generics yet while still requiring a concrete
-/// [`Codec`].
+/// The [`Codec`] trait does not supporting dyn boxing, so this
+/// enum is provided as a convenience for codec-agnostic purposes
+/// that cannot use a generic.
+///
+/// Use of this enum is not recommended for other libraries
+/// because 3rd party codec implementations don't work with
+/// DynCodec.
 #[derive(Clone, Copy)]
 pub enum DynCodec {
     Binary(BinaryCodec),

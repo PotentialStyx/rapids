@@ -2,10 +2,7 @@ use std::sync::atomic::{AtomicI64, Ordering};
 
 use kanal::AsyncReceiver;
 
-use rapids_rs::{
-    codecs::DynCodec,
-    types::{IPCMessage, RPCMetadata},
-};
+use rapids_rs::types::{IPCMessage, RPCMetadata};
 
 use super::ServiceImpl;
 
@@ -14,7 +11,7 @@ pub struct Service {
 }
 
 impl ServiceImpl for Service {
-    async fn new(_: DynCodec) -> anyhow::Result<Service> {
+    async fn new() -> anyhow::Result<Service> {
         Ok(Service {
             state: AtomicI64::new(0),
         })

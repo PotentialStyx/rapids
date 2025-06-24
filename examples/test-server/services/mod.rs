@@ -3,8 +3,6 @@ use std::sync::Arc;
 #[allow(unused_imports)]
 use tracing::{debug, error, info, trace, warn};
 
-use rapids_rs::codecs::DynCodec;
-
 pub mod example;
 
 macro_rules! service_map {
@@ -16,10 +14,10 @@ macro_rules! service_map {
         }
 
         impl ServiceMap {
-            pub async fn new(codec: DynCodec) -> anyhow::Result<Self> {
+            pub async fn new() -> anyhow::Result<Self> {
                 Ok(ServiceMap {
                     $(
-                        $name: Arc::new(<$name::Service as ServiceImpl>::new(codec).await?),
+                        $name: Arc::new(<$name::Service as ServiceImpl>::new().await?),
                     )*
                 })
             }
@@ -30,9 +28,7 @@ macro_rules! service_map {
 service_map!(example);
 
 pub trait ServiceImpl {
-    fn new(
-        codec: DynCodec,
-    ) -> impl std::future::Future<Output = anyhow::Result<Self>> + Send + Sync
+    fn new() -> impl std::future::Future<Output = anyhow::Result<Self>> + Send + Sync
     where
         Self: Sized;
 }

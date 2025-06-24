@@ -7,7 +7,7 @@
 // TODO: Real docs!!!!
 
 use crate::{
-    codecs::{Codec, DynCodec},
+    codecs::Codec,
     types::{
         Control, HandshakeError, HandshakeRequest, HandshakeResponse, HandshakeResponseOk, Header,
         HeaderID, IPCMessage, RPCMetadata, RequestInner, RiverResult, StreamInfo,
@@ -33,14 +33,14 @@ use kanal::{AsyncReceiver, AsyncSender};
 use tracing::{debug, error, info, trace, warn};
 
 /// River Server dispatch required across all clients
-pub struct RiverServer<H: ServiceHandler + Send + Sync + 'static> {
-    codec: DynCodec,
+pub struct RiverServer<H: ServiceHandler + 'static, C: Codec + 'static> {
+    codec: C,
     service_handler: H,
     service_description: HashMap<String, Vec<String>>,
 }
 
 /// Provides descriptions of services and executes procedure calls
-pub trait ServiceHandler {
+pub trait ServiceHandler: Send + Sync {
     /// Returns a [`HashMap`] that maps services to all supported procedures.
     ///
     /// This will likely only be read once and should not change.
@@ -93,8 +93,8 @@ pub trait ServiceHandler {
     }
 }
 
-impl<H: ServiceHandler + Send + Sync + 'static> RiverServer<H> {
-    pub fn new(codec: DynCodec, handler: H) -> Self {
+impl<H: ServiceHandler + 'static, C: Codec + 'static> RiverServer<H, C> {
+    pub fn new(codec: C, handler: H) -> Self {
         RiverServer {
             codec,
             service_description: handler.description(),

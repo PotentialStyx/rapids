@@ -3,7 +3,7 @@ use services::ServiceMap;
 
 use kanal::{AsyncReceiver, AsyncSender};
 use rapids_rs::{
-    codecs::{BinaryCodec, DynCodec},
+    codecs::BinaryCodec,
     dispatch::{RiverServer, ServiceHandler},
     types::{RPCMetadata, TransportRequestMessage},
 };
@@ -29,11 +29,9 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|| "127.0.0.1:8080".to_string())
         .parse()?;
 
-    let codec = DynCodec::Binary(BinaryCodec {});
-
     let server = Arc::new(RiverServer::new(
-        codec,
-        TestServiceHandler::new(codec).await?,
+        BinaryCodec {},
+        TestServiceHandler::new().await?,
     ));
 
     let app = Router::new()
@@ -57,7 +55,7 @@ struct TestServiceHandler {
 }
 
 impl TestServiceHandler {
-    async fn new(codec: DynCodec) -> anyhow::Result<Self> {
+    async fn new() -> anyhow::Result<Self> {
         let mut description = HashMap::new();
         description.insert(
             "example".to_string(),
@@ -70,7 +68,7 @@ impl TestServiceHandler {
 
         Ok(Self {
             description,
-            service_map: ServiceMap::new(codec).await?,
+            service_map: ServiceMap::new().await?,
         })
     }
 }
