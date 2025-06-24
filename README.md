@@ -16,6 +16,6 @@ An alpha server implementation of the [River](https://github.com/replit/river) p
 | `stream` procedures | ❌ | |
 | Transparent Reconnection | ❌ | |
 | Strong Typing for procedures | ❌ | Currently only message headers and control messages are strongly typed, procedures get [dynamic values](https://docs.rs/serde_json/latest/serde_json/value/index.html) |
-| Heartbeats | ❌ | |
+| Heartbeats | ❔ | Server sends heartbeats but does not deal with unresponsive clients yet |
 | Error Recovery | ❔ | Unwrap is still widely used internally, better error handling using thiserror (instead of anyhow) is needed |
 

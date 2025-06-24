@@ -16,7 +16,7 @@ use crate::{
     utils::generate_id,
 };
 
-use std::{collections::HashMap, net::SocketAddr, sync::Arc};
+use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
 
 use anyhow::Result;
 use axum::{
@@ -29,6 +29,7 @@ use axum::{
 };
 
 use kanal::{AsyncReceiver, AsyncSender};
+use tokio::time::{self, MissedTickBehavior};
 #[allow(unused_imports)]
 use tracing::{debug, error, info, trace, warn};
 
@@ -37,6 +38,7 @@ pub struct RiverServer<H: ServiceHandler + 'static, C: Codec + 'static> {
     codec: C,
     service_handler: H,
     service_description: HashMap<String, Vec<String>>,
+    heartbeat_interval: Duration,
 }
 
 /// Provides descriptions of services and executes procedure calls
@@ -104,8 +106,6 @@ pub trait ServiceHandler: Send + Sync {
             inner: RequestInner::Request { payload },
         });
 
-        debug!(?message, "Bruh");
-
         OutgoingMessage {
             message,
             stream_id: metadata.stream_id.clone(),
@@ -115,11 +115,27 @@ pub trait ServiceHandler: Send + Sync {
 }
 
 impl<H: ServiceHandler + 'static, C: Codec + 'static> RiverServer<H, C> {
+    /// Creates a new RiverServer with default settings.
+    ///
+    /// Heartbeats are sent every second, if this needs to be changed
+    /// use [`RiverServer::new_with_heartbeat_interval`](new_with_heartbeat_interval).
     pub fn new(codec: C, handler: H) -> Self {
         RiverServer {
             codec,
             service_description: handler.description(),
             service_handler: handler,
+            heartbeat_interval: Duration::from_secs(1),
+        }
+    }
+
+    /// Creates a new RiverServer with a custom heartbeat interval, to disable heartbeats
+    /// set the interval to 0 seconds.
+    pub fn new_with_heartbeat_interval(codec: C, handler: H, interval: Duration) -> Self {
+        RiverServer {
+            codec,
+            service_description: handler.description(),
+            service_handler: handler,
+            heartbeat_interval: interval,
         }
     }
 
@@ -229,6 +245,42 @@ impl<H: ServiceHandler + 'static, C: Codec + 'static> RiverServer<H, C> {
         self.event_loop(socket, client_id, addr).await.unwrap();
     }
 
+    async fn heartbeats(
+        sender: AsyncSender<OutgoingMessage>,
+        client_id: String,
+        interval: Duration,
+    ) -> anyhow::Result<()> {
+        let mut interval = time::interval(interval);
+
+        // Best attempt to send every interval
+        interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
+
+        loop {
+            interval.tick().await;
+
+            debug!(client_id, "Sent Heartbeat");
+            sender
+                .send(OutgoingMessage {
+                    message: TransportMessage::Control(TransportControlMessage {
+                        header: Header {
+                            id: generate_id(),
+                            from: "SERVER".to_string(),
+                            to: client_id.clone(),
+                            // TODO: real seq and ack
+                            seq: -1,
+                            ack: -1,
+                            stream_id: "heartbeat".to_string(),
+                            control_flags: 0b0001,
+                        },
+                        payload: Control::Ack,
+                    }),
+                    stream_id: "heartbeat".to_string(),
+                    close: false,
+                })
+                .await?;
+        }
+    }
+
     async fn event_loop(
         self: Arc<Self>,
         mut socket: WebSocket,
@@ -239,6 +291,16 @@ impl<H: ServiceHandler + 'static, C: Codec + 'static> RiverServer<H, C> {
         let mut streams: HashMap<String, StreamInfo> = HashMap::new();
 
         let (send, recv) = kanal::unbounded_async();
+
+        if !self.heartbeat_interval.is_zero() {
+            let send = send.clone();
+            let client_id = client_id.clone();
+            let heartbeat_interval = self.heartbeat_interval;
+
+            tokio::spawn(
+                async move { Self::heartbeats(send, client_id, heartbeat_interval).await },
+            );
+        }
 
         loop {
             tokio::select! {
