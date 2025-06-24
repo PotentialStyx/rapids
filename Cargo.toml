@@ -4,7 +4,7 @@ version = "0.2.0"
 edition = "2024"
 license = "AGPL-3.0-only"
 authors = ["PotentialStyx <62217716+PotentialStyx@users.noreply.github.com>"]
-repository = "https://github.com/PotentialStyx/rapids-rs/"
+repository = "https://github.com/PotentialStyx/rapids/"
 description = "A WIP implementation of https://github.com/replit/river in rust"
 exclude = [
     "/.vscode",
@@ -19,15 +19,14 @@ axum = { version = "0.8.4", features = ["ws"] }
 kanal = { version = "0.1.1", features = ["async"] }
 nanoid = "0.4.0"
 rmp-serde = "1.3.0"
-rmpv = { version = "1.3.0", features = ["with-serde"] }
 serde = { version = "1.0.219", features = ["derive"] }
-serde-rmpv = "0.0.1"
 serde_json = "1.0.140"
-tokio = { version = "1.45.1", features = ["net", "rt-multi-thread", "macros"] }
+tokio = { version = "1.45.1", features = ["rt", "time", "macros"] }
 tracing = "0.1.41"
 
 [dev-dependencies]
-criterion = { version = "0.5", features = ["html_reports"] }
+criterion = "0.6.0"
+tokio = { version = "1.45.1", features = ["rt-multi-thread", "net"] }
 tracing-subscriber = "0.3.19"
 
 [[bench]]
