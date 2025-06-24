@@ -1,5 +1,5 @@
 #![warn(clippy::pedantic, missing_docs)]
-#![allow(clippy::doc_markdown)]
+#![allow(clippy::doc_markdown, clippy::must_use_candidate)]
 #![doc = include_str!("../README.md")]
 
 //! ## ⚠️ Weird API Parts

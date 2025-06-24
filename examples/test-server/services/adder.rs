@@ -1,8 +1,11 @@
 use std::sync::atomic::{AtomicI64, Ordering};
 
-use kanal::AsyncReceiver;
+use kanal::{AsyncReceiver, AsyncSender};
 
-use rapids_rs::types::{IncomingMessage, RPCMetadata};
+use rapids_rs::{
+    dispatch::ServiceHandler,
+    types::{IncomingMessage, OutgoingMessage, RPCMetadata},
+};
 
 use super::ServiceImpl;
 use anyhow::format_err;
@@ -11,7 +14,7 @@ pub struct Service {
     state: AtomicI64,
 }
 
-impl ServiceImpl for Service {
+impl<T: ServiceHandler> ServiceImpl<T> for Service {
     async fn new() -> anyhow::Result<Service> {
         Ok(Service {
             state: AtomicI64::new(0),
@@ -57,8 +60,7 @@ impl Service {
         Ok(return_payload)
     }
 
-    #[allow(clippy::too_many_arguments)]
-    pub async fn stream_add(
+    pub async fn upload_add(
         &self,
         _: serde_json::Value,
         recv: AsyncReceiver<IncomingMessage>,
@@ -82,5 +84,58 @@ impl Service {
         let return_payload = serde_json::json!({ "result": result });
 
         Ok(return_payload)
+    }
+
+    pub async fn stream_add<T: ServiceHandler>(
+        &self,
+        _: serde_json::Value,
+        recv: AsyncReceiver<IncomingMessage>,
+        send: AsyncSender<OutgoingMessage>,
+        metadata: &RPCMetadata,
+    ) -> anyhow::Result<()> {
+        // TODO: deal with force close
+        while let Ok(IncomingMessage::Request(value)) = recv.recv().await {
+            let amt = value
+                .as_object()
+                .unwrap()
+                .get("n")
+                .unwrap()
+                .as_i64()
+                .unwrap();
+
+            let res = self.state.fetch_add(amt, Ordering::SeqCst) + amt;
+
+            <Self as ServiceImpl<T>>::send_payload(
+                send.clone(),
+                serde_json::json!({ "result": res }),
+                metadata,
+            )
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    pub async fn subscription_add<T: ServiceHandler>(
+        &self,
+        payload: serde_json::Value,
+        send: AsyncSender<OutgoingMessage>,
+        metadata: &RPCMetadata,
+    ) -> anyhow::Result<()> {
+        let amts = payload.as_array().unwrap();
+
+        for amt in amts {
+            let amt = amt.as_i64().unwrap();
+            let res = self.state.fetch_add(amt, Ordering::SeqCst) + amt;
+
+            <Self as ServiceImpl<T>>::send_payload(
+                send.clone(),
+                serde_json::json!({ "result": res }),
+                metadata,
+            )
+            .await?;
+        }
+
+        Ok(())
     }
 }

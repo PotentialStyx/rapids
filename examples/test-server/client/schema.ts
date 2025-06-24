@@ -6,7 +6,7 @@ export const CODEC = BinaryCodec;
 
 export const ServiceSchema = createServiceSchema();
 
-export const ExampleService = ServiceSchema.define(
+export const AdderService = ServiceSchema.define(
     {
         initializeState: () => ({ count: 0 }),
     },
@@ -32,7 +32,7 @@ export const ExampleService = ServiceSchema.define(
             },
         }),
 
-        streamAdd: Procedure.upload({
+        uploadAdd: Procedure.upload({
             requestInit: Type.Null(),
             requestData: Type.Object({ n: Type.Number() }),
             responseData: Type.Object({ result: Type.Number() }),
@@ -45,10 +45,40 @@ export const ExampleService = ServiceSchema.define(
 
                 return Ok({ result: ctx.state.count })
             }
+        }),
+
+        streamAdd: Procedure.stream({
+            requestInit: Type.Null(),
+            requestData: Type.Object({ n: Type.Number() }),
+            responseData: Type.Object({ result: Type.Number() }),
+            async handler({ ctx, reqReadable, resWritable }) {
+                for await (let item of reqReadable) {
+                    if (item.ok) {
+                        ctx.state.count += item.payload.n;
+                        resWritable.write(Ok({ result: ctx.state.count }));
+                    }
+                }
+
+                resWritable.close;
+            }
+        }),
+
+        subscriptionAdd: Procedure.subscription({
+            requestInit: Type.Array(Type.Number()),
+            responseData: Type.Object({ result: Type.Number() }),
+            async handler({ ctx, resWritable, reqInit }) {
+                for (let item of reqInit) {
+                    ctx.state.count += item;
+                    resWritable.write(Ok({ result: ctx.state.count }));
+                }
+
+                resWritable.close();
+
+            }
         })
     },
 );
 
 export const services = {
-    example: ExampleService
+    adder: AdderService
 };

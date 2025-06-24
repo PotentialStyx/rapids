@@ -10,8 +10,9 @@ use crate::{
     codecs::Codec,
     types::{
         Control, HandshakeError, HandshakeRequest, HandshakeResponse, HandshakeResponseOk, Header,
-        HeaderID, IncomingMessage, OutgoingMessage, RPCMetadata, RequestInner, RiverResult,
-        StreamInfo, TransportControlMessage, TransportMessage, TransportRequestMessage,
+        HeaderID, IncomingMessage, OutgoingMessage, ProcedureRes, RPCMetadata, RequestInner,
+        RiverResult, StreamInfo, TransportControlMessage, TransportMessage,
+        TransportRequestMessage,
     },
     utils::generate_id,
 };
@@ -68,19 +69,11 @@ pub trait ServiceHandler: Send + Sync {
     ///
     /// The `close` parameter is used to indicate whether this message is closing its stream
     fn payload_to_msg(
-        payload: serde_json::Value,
+        payload: ProcedureRes,
         metadata: &RPCMetadata,
         mut close: bool,
         error: bool,
     ) -> OutgoingMessage {
-        // TODO: better way to log?
-        debug!(
-            stream_id = metadata.stream_id,
-            to = metadata.client_id,
-            "Sent {}",
-            payload
-        );
-
         let mut control_flags = 0;
 
         if close {
@@ -92,19 +85,37 @@ pub trait ServiceHandler: Send + Sync {
             close = true;
         }
 
-        let message = TransportMessage::Request(TransportRequestMessage {
-            header: Header {
-                stream_id: metadata.stream_id.clone(),
-                control_flags,
-                id: generate_id(),
-                to: metadata.client_id.clone(),
-                from: "SERVER".to_string(),
-                seq: metadata.seq,
-                // TODO: ack setting should be dealt with by dispatch
-                ack: 1,
-            },
-            inner: RequestInner::Request { payload },
-        });
+        let header = Header {
+            stream_id: metadata.stream_id.clone(),
+            control_flags,
+            id: generate_id(),
+            to: metadata.client_id.clone(),
+            from: "SERVER".to_string(),
+            seq: metadata.seq,
+            // TODO: ack setting should be dealt with by dispatch
+            ack: 1,
+        };
+
+        let message = match payload {
+            ProcedureRes::Response(payload) => {
+                // TODO: better way to log?
+                debug!(
+                    stream_id = metadata.stream_id,
+                    to = metadata.client_id,
+                    "Sent {}",
+                    payload
+                );
+
+                TransportMessage::Request(TransportRequestMessage {
+                    header,
+                    inner: RequestInner::Request { payload },
+                })
+            }
+            ProcedureRes::Close => TransportMessage::Control(TransportControlMessage {
+                header,
+                payload: Control::Close,
+            }),
+        };
 
         OutgoingMessage {
             message,

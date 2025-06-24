@@ -5,7 +5,7 @@ use kanal::{AsyncReceiver, AsyncSender};
 use rapids_rs::{
     codecs::BinaryCodec,
     dispatch::{RiverServer, ServiceHandler},
-    types::{IncomingMessage, OutgoingMessage, RPCMetadata},
+    types::{IncomingMessage, OutgoingMessage, ProcedureRes, RPCMetadata},
 };
 
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
@@ -51,18 +51,20 @@ async fn main() -> Result<()> {
 
 struct TestServiceHandler {
     description: HashMap<String, Vec<String>>,
-    service_map: services::ServiceMap,
+    service_map: services::ServiceMap<Self>,
 }
 
 impl TestServiceHandler {
     async fn new() -> anyhow::Result<Self> {
         let mut description = HashMap::new();
         description.insert(
-            "example".to_string(),
+            "adder".to_string(),
             vec![
                 "add".to_string(),
                 "resetCount".to_string(),
+                "uploadAdd".to_string(),
                 "streamAdd".to_string(),
+                "subscriptionAdd".to_string(),
             ],
         );
 
@@ -88,13 +90,30 @@ impl ServiceHandler for TestServiceHandler {
         recv: AsyncReceiver<IncomingMessage>,
     ) {
         match service.as_str() {
-            "example" => {
-                let service = self.service_map.example.clone();
+            "adder" => {
+                let service = self.service_map.adder.clone();
                 tokio::spawn(async move {
                     let result = match procedure.as_str() {
-                        "add" => service.add(payload, &metadata).await,
-                        "resetCount" => service.reset_count(payload, &metadata).await,
-                        "streamAdd" => service.stream_add(payload, recv, &metadata).await,
+                        "add" => service
+                            .add(payload, &metadata)
+                            .await
+                            .map(ProcedureRes::Response),
+                        "resetCount" => service
+                            .reset_count(payload, &metadata)
+                            .await
+                            .map(ProcedureRes::Response),
+                        "uploadAdd" => service
+                            .upload_add(payload, recv, &metadata)
+                            .await
+                            .map(ProcedureRes::Response),
+                        "streamAdd" => service
+                            .stream_add::<Self>(payload, recv, channel.clone(), &metadata)
+                            .await
+                            .map(|_| ProcedureRes::Close),
+                        "subscriptionAdd" => service
+                            .subscription_add::<Self>(payload, channel.clone(), &metadata)
+                            .await
+                            .map(|_| ProcedureRes::Close),
                         _ => {
                             unreachable!(
                                 "Dispatcher guarantees only correct procedures are passed along"
@@ -103,15 +122,15 @@ impl ServiceHandler for TestServiceHandler {
                     };
 
                     let message = match &result {
-                        Ok(result) => {
-                            serde_json::json!({ "ok": true, "payload": result })
-                        }
-                        Err(err) => {
-                            serde_json::json!({
-                                "ok": false,
-                                "payload": {"code": "UNCAUGHT_ERROR", "message": err.to_string()}
-                            })
-                        }
+                        Ok(ProcedureRes::Response(result)) => ProcedureRes::Response(
+                            serde_json::json!({ "ok": true, "payload": result }),
+                        ),
+                        Err(err) => ProcedureRes::Response(serde_json::json!({
+                            "ok": false,
+                            "payload": {"code": "UNCAUGHT_ERROR", "message": err.to_string()}
+                        })),
+
+                        Ok(ProcedureRes::Close) => ProcedureRes::Close,
                     };
 
                     channel

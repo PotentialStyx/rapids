@@ -2,7 +2,7 @@ import http from 'http';
 import { WebSocketServer } from 'ws';
 import { WebSocketServerTransport } from '@replit/river/transport/ws/server';
 import { createServer } from '@replit/river';
-import { services, ExampleService, CODEC } from './schema';
+import { services, CODEC } from './schema';
 
 // start websocket server on port 3000
 const httpServer = http.createServer();
@@ -11,9 +11,7 @@ const wss = new WebSocketServer({ server: httpServer });
 const transport = new WebSocketServerTransport(wss, 'SERVER', { codec: CODEC });
 
 
-export const server = createServer(transport, {
-    example: ExampleService,
-});
+export const server = createServer(transport, services);
 
 export type ServiceSurface = typeof server;
 

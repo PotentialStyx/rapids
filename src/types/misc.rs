@@ -41,3 +41,15 @@ pub struct OutgoingMessage {
     /// Indicates if this is the last message of the stream
     pub close: bool,
 }
+
+/// Procedure result used by [`ServiceHandler`](crate::dispatch::ServiceHandler)
+pub enum ProcedureRes {
+    /// The procedure is just closing the connection
+    ///
+    /// This is used by `stream`/`subscription`
+    Close,
+    /// The procedure is sending a response message
+    ///
+    /// This is used by `rpc`/`upload`
+    Response(serde_json::Value),
+}

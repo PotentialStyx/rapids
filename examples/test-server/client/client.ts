@@ -27,6 +27,7 @@ ws.send = (...args) => {
             // @ts-ignore
             const msg = CODEC.fromBuffer(args[0])
 
+            // @ts-ignore
             if (msg.streamId == "heartbeat" && !SHOW_PINGS) return;
 
             console.log(
@@ -44,6 +45,7 @@ ws.addEventListener("message", (_msg) => {
         // @ts-ignore
         const msg = CODEC.fromBuffer(_msg.data);
 
+        // @ts-ignore
         if (msg.streamId == "heartbeat" && !SHOW_PINGS) return;
 
         console.log("RECV", msg)
@@ -77,22 +79,9 @@ const client: Client<typeof services> = createClient(
 console.info("River client connected");
 
 {
-    console.info("Sending example::add {n: 3}");
+    console.info("Sending adder::add {n: 3}");
 
-    const result = await client.example.add.rpc({ n: 3 });
-
-    if (result.ok) {
-        const msg = result.payload;
-        console.info(`Recieved: ${msg.result}`);
-    } else {
-        console.error("Recieved error", result.payload)
-    }
-}
-
-{
-    console.info("Sending example::add {n: 6}");
-
-    const result = await client.example.add.rpc({ n: 6 });
+    const result = await client.adder.add.rpc({ n: 3 });
 
     if (result.ok) {
         const msg = result.payload;
@@ -103,11 +92,23 @@ console.info("River client connected");
 }
 
 {
-    console.info("Sending example::resetCount(0)");
-    const result = await client.example.resetCount.rpc(0);
+    console.info("Sending adder::add {n: 6}");
+
+    const result = await client.adder.add.rpc({ n: 6 });
 
     if (result.ok) {
         const msg = result.payload;
+        console.info(`Recieved: ${msg.result}`);
+    } else {
+        console.error("Recieved error", result.payload)
+    }
+}
+
+{
+    console.info("Sending adder::resetCount(0)");
+    const result = await client.adder.resetCount.rpc(0);
+
+    if (result.ok) {
         console.info("Count reset");
     } else {
         console.error("Recieved error", result.payload)
@@ -116,8 +117,8 @@ console.info("River client connected");
 
 {
     const numbers = [1, 2, 3];
-    console.info("Sending example::streamAdd [{n: 1}, {n: 2}, {n: 3}]");
-    const res = client.example.streamAdd.upload(null);
+    console.info("Sending adder::uploadAdd [{n: 1}, {n: 2}, {n: 3}]");
+    const res = client.adder.uploadAdd.upload(null);
 
     for (const n of numbers) {
         res.reqWritable.write({ n });
@@ -134,3 +135,71 @@ console.info("River client connected");
         console.error("Recieved error", result.payload)
     }
 }
+
+{
+    console.info("Sending adder::resetCount(0)");
+    const result = await client.adder.resetCount.rpc(0);
+
+    if (result.ok) {
+        console.info("Count reset");
+    } else {
+        console.error("Recieved error", result.payload)
+    }
+}
+
+{
+    const numbers = [1, 2, 3];
+    console.info("Preparing adder::streamAdd [{n: 1}, {n: 2}, {n: 3}]");
+    const res = client.adder.streamAdd.stream(null);
+    const resReadable = res.resReadable[Symbol.asyncIterator]();
+
+    for (const n of numbers) {
+        console.info(`Sending adder::streamAdd {n: ${n}}`);
+
+        res.reqWritable.write({ n });
+
+        const item = await resReadable.next();
+        if (item.done) {
+            console.info(`Stream is done`);
+        } else {
+            const result = item.value;
+            if (result.ok) {
+                const msg = result.payload;
+                console.info(`Recieved: ${msg.result}`);
+            } else {
+                console.error("Recieved error", result.payload)
+            }
+        }
+    }
+
+    res.reqWritable.close()
+}
+
+{
+    console.info("Sending adder::resetCount(0)");
+    const result = await client.adder.resetCount.rpc(0);
+
+    if (result.ok) {
+        console.info("Count reset");
+    } else {
+        console.error("Recieved error", result.payload)
+    }
+}
+
+{
+    const numbers = [1, 2, 3];
+    console.info("Sending adder::subscriptionAdd [1, 2, 3]");
+    const res = client.adder.subscriptionAdd.subscribe([1, 2, 3]);
+
+    for await (const result of res.resReadable) {
+        if (result.ok) {
+            const msg = result.payload;
+            console.info(`Recieved: ${msg.result}`);
+        } else {
+            console.error("Recieved error", result.payload)
+        }
+    }
+}
+
+
+
