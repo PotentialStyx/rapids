@@ -1,6 +1,5 @@
 //! Miscellaneous types used within Rapids.rs
 
-use axum::extract::ws::Message;
 use kanal::AsyncSender;
 
 /// Used by the dispatcher to associate a `stream_id` with the needed metadata
@@ -20,11 +19,9 @@ pub enum IPCMessage {
     Request(serde_json::Value),
 }
 
-/// General information needed by all procedure handlers
+/// General information needed by procedure handlers
 pub struct RPCMetadata {
     pub stream_id: String,
     pub client_id: String,
     pub seq: i32,
-    /// Channel to send messages back to the client
-    pub channel: AsyncSender<Message>,
 }

@@ -7,18 +7,16 @@ use rapids_rs::{
     types::{IPCMessage, RPCMetadata},
 };
 
-use super::{payload_to_msg, ServiceImpl};
+use super::ServiceImpl;
 
 pub struct Service {
     state: AtomicI64,
-    codec: DynCodec,
 }
 
 impl ServiceImpl for Service {
-    async fn new(codec: DynCodec) -> anyhow::Result<Service> {
+    async fn new(_: DynCodec) -> anyhow::Result<Service> {
         Ok(Service {
             state: AtomicI64::new(0),
-            codec,
         })
     }
 }
@@ -27,8 +25,8 @@ impl Service {
     pub async fn add(
         &self,
         payload: serde_json::Value,
-        metadata: RPCMetadata,
-    ) -> anyhow::Result<()> {
+        _metadata: &RPCMetadata,
+    ) -> anyhow::Result<serde_json::Value> {
         let amt = payload
             .as_object()
             .unwrap()
@@ -39,39 +37,23 @@ impl Service {
 
         let res = self.state.fetch_add(amt, Ordering::SeqCst) + amt;
 
-        let return_payload = serde_json::json!({
-            "ok": true,
-            "payload": {"result": res }
-        });
+        let return_payload = serde_json::json!({"result": res });
 
-        metadata
-            .channel
-            .send(payload_to_msg(return_payload, &metadata, self.codec)?)
-            .await?;
-
-        Ok(())
+        Ok(return_payload)
     }
 
     pub async fn reset_count(
         &self,
         payload: serde_json::Value,
-        metadata: RPCMetadata,
-    ) -> anyhow::Result<()> {
+        _metadata: &RPCMetadata,
+    ) -> anyhow::Result<serde_json::Value> {
         let amt = payload.as_number().unwrap().as_i64().unwrap();
 
         self.state.store(amt, Ordering::SeqCst);
 
-        let return_payload = serde_json::json!({
-            "ok": true,
-            "payload": null
-        });
+        let return_payload = serde_json::json!(null);
 
-        metadata
-            .channel
-            .send(payload_to_msg(return_payload, &metadata, self.codec)?)
-            .await?;
-
-        Ok(())
+        Ok(return_payload)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -79,8 +61,8 @@ impl Service {
         &self,
         _: serde_json::Value,
         recv: AsyncReceiver<IPCMessage>,
-        metadata: RPCMetadata,
-    ) -> anyhow::Result<()> {
+        _metadata: &RPCMetadata,
+    ) -> anyhow::Result<serde_json::Value> {
         // TODO: deal with force close
         while let Ok(IPCMessage::Request(value)) = recv.recv().await {
             let amt = value
@@ -96,16 +78,8 @@ impl Service {
 
         let result = self.state.load(Ordering::SeqCst);
 
-        let return_payload = serde_json::json!({
-            "ok": true,
-            "payload": { "result": result }
-        });
+        let return_payload = serde_json::json!({ "result": result });
 
-        metadata
-            .channel
-            .send(payload_to_msg(return_payload, &metadata, self.codec)?)
-            .await?;
-
-        Ok(())
+        Ok(return_payload)
     }
 }

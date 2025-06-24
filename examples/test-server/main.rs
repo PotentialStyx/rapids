@@ -1,20 +1,20 @@
 mod services;
 use services::ServiceMap;
 
-use kanal::AsyncReceiver;
+use kanal::{AsyncReceiver, AsyncSender};
 use rapids_rs::{
     codecs::{BinaryCodec, DynCodec},
     dispatch::{RiverServer, ServiceHandler},
-    types::RPCMetadata,
+    types::{RPCMetadata, TransportRequestMessage},
 };
 
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 
 use anyhow::Result;
 use axum::{
+    Router,
     response::{IntoResponse, Response},
     routing::get,
-    Router,
 };
 
 #[allow(unused_imports)]
@@ -86,32 +86,40 @@ impl ServiceHandler for TestServiceHandler {
         service: String,
         procedure: String,
         metadata: RPCMetadata,
+        channel: AsyncSender<TransportRequestMessage>,
         payload: serde_json::Value,
         recv: AsyncReceiver<rapids_rs::types::IPCMessage>,
     ) {
         match service.as_str() {
             "example" => {
                 let service = self.service_map.example.clone();
-                match procedure.as_str() {
-                    "add" => {
-                        tokio::spawn(async move {
-                            service.add(payload, metadata).await.unwrap();
-                        });
-                    }
-                    "resetCount" => {
-                        tokio::spawn(async move {
-                            service.reset_count(payload, metadata).await.unwrap();
-                        });
-                    }
-                    "streamAdd" => {
-                        tokio::spawn(async move {
-                            service.stream_add(payload, recv, metadata).await.unwrap();
-                        });
-                    }
-                    _ => {
-                        unreachable!()
-                    }
-                }
+                tokio::spawn(async move {
+                    let result = match procedure.as_str() {
+                        "add" => service.add(payload, &metadata).await,
+                        "resetCount" => service.reset_count(payload, &metadata).await,
+                        "streamAdd" => service.stream_add(payload, recv, &metadata).await,
+                        _ => {
+                            unreachable!()
+                        }
+                    };
+
+                    let message = match result {
+                        Ok(result) => {
+                            serde_json::json!({ "ok": true, "payload": result })
+                        }
+                        Err(err) => {
+                            // TODO: confirm this is an ok error code to send
+                            serde_json::json!({ "ok": false, "code": "UNCAUGHT_ERROR", "reason": err.to_string() })
+                        }
+                    };
+
+                    channel
+                        .send(<TestServiceHandler as ServiceHandler>::payload_to_msg(
+                            message, &metadata, true,
+                        ))
+                        .await
+                        .expect("TODO: handle this");
+                });
             }
             _ => {
                 unreachable!()

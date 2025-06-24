@@ -28,7 +28,7 @@ use axum::{
     response::Response,
 };
 
-use kanal::AsyncReceiver;
+use kanal::{AsyncReceiver, AsyncSender};
 #[allow(unused_imports)]
 use tracing::{debug, error, info, trace, warn};
 
@@ -57,9 +57,40 @@ pub trait ServiceHandler {
         service: String,
         procedure: String,
         metadata: RPCMetadata,
+        channel: AsyncSender<TransportRequestMessage>,
         payload: serde_json::Value,
         recv: AsyncReceiver<IPCMessage>,
     ) -> impl std::future::Future<Output = ()> + Send + Sync;
+
+    /// Helper method that converts a payload into a [`TransportRequestMessage`]
+    ///
+    /// The `close` parameter is used to indicate whether this message is closing its stream
+    fn payload_to_msg(
+        payload: serde_json::Value,
+        metadata: &RPCMetadata,
+        close: bool,
+    ) -> TransportRequestMessage {
+        // TODO: better way to log?
+        debug!(
+            stream_id = metadata.stream_id,
+            to = metadata.client_id,
+            "Sent {}",
+            payload
+        );
+
+        TransportRequestMessage {
+            header: Header {
+                stream_id: metadata.stream_id.clone(),
+                control_flags: if close { 0b1000 } else { 0 },
+                id: generate_id(),
+                to: metadata.client_id.clone(),
+                from: "SERVER".to_string(),
+                seq: metadata.seq,
+                ack: 1,
+            },
+            inner: RequestInner::Request { payload },
+        }
+    }
 }
 
 impl<H: ServiceHandler + Send + Sync + 'static> RiverServer<H> {
@@ -236,11 +267,11 @@ impl<H: ServiceHandler + Send + Sync + 'static> RiverServer<H> {
                                         });
                                     }
 
-                                    let metadata = RPCMetadata { stream_id, client_id: client_id.clone(), seq: data.header.seq, channel: send.clone() };
+                                    let metadata = RPCMetadata { stream_id, client_id: client_id.clone(), seq: data.header.seq };
 
                                     if let Some(procedures) = self.service_description.get(&service_name) {
                                         if procedures.contains(&procedure_name) {
-                                            self.service_handler.invoke_rpc(service_name, procedure_name, metadata, payload, stream_recv).await;
+                                            self.service_handler.invoke_rpc(service_name, procedure_name, metadata, send.clone(), payload, stream_recv).await;
                                         } else {
                                             warn!(service = service_name, procedure = procedure_name, "Unknown Procedure");
                                         }
@@ -267,8 +298,12 @@ impl<H: ServiceHandler + Send + Sync + 'static> RiverServer<H> {
                         }
                     }
                 }
-                to_send = recv.recv() => {
-                    socket.send(to_send?).await?;
+                message = recv.recv() => {
+                    let to_send = WsMessage::Binary(Bytes::from_owner(
+                        self.codec.encode_to_vec(&message?)?,
+                    ));
+
+                    socket.send(to_send).await?;
                 }
             }
         }
