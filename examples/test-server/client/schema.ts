@@ -16,7 +16,7 @@ export const AdderService = ServiceSchema.define(
             responseData: Type.Object({ result: Type.Number() }),
             async handler({ ctx, reqInit: { n } }) {
                 ctx.state.count += n;
-                if (n == 6) {
+                if (n === 6) {
                     throw new Error("test");
                 }
                 return Ok({ result: ctx.state.count });
@@ -37,7 +37,7 @@ export const AdderService = ServiceSchema.define(
             requestData: Type.Object({ n: Type.Number() }),
             responseData: Type.Object({ result: Type.Number() }),
             async handler({ ctx, reqReadable }) {
-                for await (let item of reqReadable) {
+                for await (const item of reqReadable) {
                     if (item.ok) {
                         ctx.state.count += item.payload.n;
                     }
@@ -52,7 +52,7 @@ export const AdderService = ServiceSchema.define(
             requestData: Type.Object({ n: Type.Number() }),
             responseData: Type.Object({ result: Type.Number() }),
             async handler({ ctx, reqReadable, resWritable }) {
-                for await (let item of reqReadable) {
+                for await (const item of reqReadable) {
                     if (item.ok) {
                         ctx.state.count += item.payload.n;
                         resWritable.write(Ok({ result: ctx.state.count }));
@@ -67,7 +67,7 @@ export const AdderService = ServiceSchema.define(
             requestInit: Type.Array(Type.Number()),
             responseData: Type.Object({ result: Type.Number() }),
             async handler({ ctx, resWritable, reqInit }) {
-                for (let item of reqInit) {
+                for (const item of reqInit) {
                     ctx.state.count += item;
                     resWritable.write(Ok({ result: ctx.state.count }));
                 }

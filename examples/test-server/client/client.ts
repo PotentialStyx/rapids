@@ -1,7 +1,10 @@
+/** biome-ignore-all lint/suspicious/noDebugger: debugger is useful for protocol testing */
+/** biome-ignore-all assist/source/organizeImports: ... */
+
 import { WebSocketClientTransport } from '@replit/river/transport/ws/client';
 import { createClient, type Client } from '@replit/river';
 import { WebSocket } from 'ws';
-import { CODEC, services } from './schema';
+import { CODEC, type services } from './schema';
 import { customAlphabet } from 'nanoid';
 
 const alphabet = customAlphabet(
@@ -13,22 +16,20 @@ const DEBUG = false;
 const SHOW_PINGS = false;
 
 const ws = new WebSocket('ws://localhost:8080/delta');
-// @ts-ignore
+// @ts-expect-error
 ws._send = ws.send
 
-const decoder = new TextDecoder();
-
 ws.send = (...args) => {
-    // @ts-ignore
+    // @ts-expect-error
     ws._send(...args);
 
     try {
         if (DEBUG) {
-            // @ts-ignore
+            // @ts-expect-error
             const msg = CODEC.fromBuffer(args[0])
 
-            // @ts-ignore
-            if (msg.streamId == "heartbeat" && !SHOW_PINGS) return;
+            // @ts-expect-error
+            if (msg.streamId === "heartbeat" && !SHOW_PINGS) return;
 
             console.log(
                 "SEND", msg
@@ -42,11 +43,11 @@ ws.send = (...args) => {
 ws.addEventListener("message", (_msg) => {
     if (DEBUG) {
         // console.log(_msg.data, decoder.decode(_msg.data));
-        // @ts-ignore
+        // @ts-expect-error
         const msg = CODEC.fromBuffer(_msg.data);
 
-        // @ts-ignore
-        if (msg.streamId == "heartbeat" && !SHOW_PINGS) return;
+        // @ts-expect-error
+        if (msg.streamId === "heartbeat" && !SHOW_PINGS) return;
 
         console.log("RECV", msg)
     };
@@ -59,7 +60,7 @@ const transport = new WebSocketClientTransport(
 );
 
 transport.bindLogger((msg, ctx, level) => {
-    if (level == "warn" || level == "error") {
+    if (level === "warn" || level === "error") {
         debugger;
         console.warn(`[RIVER: ${level}]`, msg, ctx);
     }
@@ -187,7 +188,6 @@ console.info("River client connected");
 }
 
 {
-    const numbers = [1, 2, 3];
     console.info("Sending adder::subscriptionAdd [1, 2, 3]");
     const res = client.adder.subscriptionAdd.subscribe([1, 2, 3]);
 
