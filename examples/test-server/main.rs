@@ -6,6 +6,7 @@ use rapids_rs::{
     codecs::BinaryCodec,
     dispatch::{RiverServer, ServiceHandler},
     types::{IncomingMessage, OutgoingMessage, ProcedureRes, RPCMetadata},
+    utils,
 };
 
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
@@ -51,7 +52,7 @@ async fn main() -> Result<()> {
 
 struct TestServiceHandler {
     description: HashMap<String, Vec<String>>,
-    service_map: services::ServiceMap<Self>,
+    service_map: services::ServiceMap,
 }
 
 impl TestServiceHandler {
@@ -107,11 +108,11 @@ impl ServiceHandler for TestServiceHandler {
                             .await
                             .map(ProcedureRes::Response),
                         "streamAdd" => service
-                            .stream_add::<Self>(payload, recv, channel.clone(), &metadata)
+                            .stream_add(payload, recv, channel.clone(), &metadata)
                             .await
                             .map(|_| ProcedureRes::Close),
                         "subscriptionAdd" => service
-                            .subscription_add::<Self>(payload, channel.clone(), &metadata)
+                            .subscription_add(payload, channel.clone(), &metadata)
                             .await
                             .map(|_| ProcedureRes::Close),
                         _ => {
@@ -134,7 +135,7 @@ impl ServiceHandler for TestServiceHandler {
                     };
 
                     channel
-                        .send(Self::payload_to_msg(
+                        .send(utils::payload_to_msg(
                             message,
                             &metadata,
                             result.is_ok(),

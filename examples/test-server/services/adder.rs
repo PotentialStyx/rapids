@@ -2,10 +2,7 @@ use std::sync::atomic::{AtomicI64, Ordering};
 
 use kanal::{AsyncReceiver, AsyncSender};
 
-use rapids_rs::{
-    dispatch::ServiceHandler,
-    types::{IncomingMessage, OutgoingMessage, RPCMetadata},
-};
+use rapids_rs::types::{IncomingMessage, OutgoingMessage, RPCMetadata};
 
 use super::ServiceImpl;
 use anyhow::format_err;
@@ -14,7 +11,7 @@ pub struct Service {
     state: AtomicI64,
 }
 
-impl<T: ServiceHandler> ServiceImpl<T> for Service {
+impl ServiceImpl for Service {
     async fn new() -> anyhow::Result<Service> {
         Ok(Service {
             state: AtomicI64::new(0),
@@ -86,7 +83,7 @@ impl Service {
         Ok(return_payload)
     }
 
-    pub async fn stream_add<T: ServiceHandler>(
+    pub async fn stream_add(
         &self,
         _: serde_json::Value,
         recv: AsyncReceiver<IncomingMessage>,
@@ -105,18 +102,14 @@ impl Service {
 
             let res = self.state.fetch_add(amt, Ordering::SeqCst) + amt;
 
-            <Self as ServiceImpl<T>>::send_payload(
-                send.clone(),
-                serde_json::json!({ "result": res }),
-                metadata,
-            )
-            .await?;
+            Self::send_payload(send.clone(), serde_json::json!({ "result": res }), metadata)
+                .await?;
         }
 
         Ok(())
     }
 
-    pub async fn subscription_add<T: ServiceHandler>(
+    pub async fn subscription_add(
         &self,
         payload: serde_json::Value,
         send: AsyncSender<OutgoingMessage>,
@@ -128,12 +121,8 @@ impl Service {
             let amt = amt.as_i64().unwrap();
             let res = self.state.fetch_add(amt, Ordering::SeqCst) + amt;
 
-            <Self as ServiceImpl<T>>::send_payload(
-                send.clone(),
-                serde_json::json!({ "result": res }),
-                metadata,
-            )
-            .await?;
+            Self::send_payload(send.clone(), serde_json::json!({ "result": res }), metadata)
+                .await?;
         }
 
         Ok(())

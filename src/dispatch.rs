@@ -10,9 +10,8 @@ use crate::{
     codecs::Codec,
     types::{
         Control, HandshakeError, HandshakeRequest, HandshakeResponse, HandshakeResponseOk, Header,
-        HeaderID, IncomingMessage, OutgoingMessage, ProcedureRes, RPCMetadata, RequestInner,
-        RiverResult, StreamInfo, TransportControlMessage, TransportMessage,
-        TransportRequestMessage,
+        HeaderID, IncomingMessage, OutgoingMessage, RPCMetadata, RequestInner, RiverResult,
+        SimpleOutgoingMessage, StreamInfo, TransportControlMessage, TransportRequestMessage,
     },
     utils::generate_id,
 };
@@ -64,65 +63,6 @@ pub trait ServiceHandler: Send + Sync {
         payload: serde_json::Value,
         recv: AsyncReceiver<IncomingMessage>,
     ) -> impl std::future::Future<Output = ()> + Send + Sync;
-
-    /// Helper method that converts a payload into a [`TransportRequestMessage`]
-    ///
-    /// The `close` parameter is used to indicate whether this message is closing its stream
-    fn payload_to_msg(
-        payload: ProcedureRes,
-        metadata: &RPCMetadata,
-        mut close: bool,
-        error: bool,
-    ) -> OutgoingMessage {
-        let mut control_flags = 0;
-
-        if close {
-            control_flags |= 0b1000;
-        }
-
-        if error {
-            control_flags |= 0b0100;
-            close = true;
-        }
-
-        let header = Header {
-            stream_id: metadata.stream_id.clone(),
-            control_flags,
-            id: generate_id(),
-            to: metadata.client_id.clone(),
-            from: "SERVER".to_string(),
-            seq: metadata.seq,
-            // TODO: ack setting should be dealt with by dispatch
-            ack: 1,
-        };
-
-        let message = match payload {
-            ProcedureRes::Response(payload) => {
-                // TODO: better way to log?
-                debug!(
-                    stream_id = metadata.stream_id,
-                    to = metadata.client_id,
-                    "Sent {}",
-                    payload
-                );
-
-                TransportMessage::Request(TransportRequestMessage {
-                    header,
-                    inner: RequestInner::Request { payload },
-                })
-            }
-            ProcedureRes::Close => TransportMessage::Control(TransportControlMessage {
-                header,
-                payload: Control::Close,
-            }),
-        };
-
-        OutgoingMessage {
-            message,
-            stream_id: metadata.stream_id.clone(),
-            close,
-        }
-    }
 }
 
 impl<H: ServiceHandler + 'static, C: Codec + 'static> RiverServer<H, C> {
@@ -272,19 +212,7 @@ impl<H: ServiceHandler + 'static, C: Codec + 'static> RiverServer<H, C> {
             debug!(client_id, "Sent Heartbeat");
             sender
                 .send(OutgoingMessage {
-                    message: TransportMessage::Control(TransportControlMessage {
-                        header: Header {
-                            id: generate_id(),
-                            from: "SERVER".to_string(),
-                            to: client_id.clone(),
-                            // TODO: real seq and ack
-                            seq: -1,
-                            ack: -1,
-                            stream_id: "heartbeat".to_string(),
-                            control_flags: 0b0001,
-                        },
-                        payload: Control::Ack,
-                    }),
+                    message: SimpleOutgoingMessage::Control(0b0001, Control::Ack),
                     stream_id: "heartbeat".to_string(),
                     close: false,
                 })
@@ -356,12 +284,11 @@ impl<H: ServiceHandler + 'static, C: Codec + 'static> RiverServer<H, C> {
                                     // Only add stream if it is opened and not immediately closed
                                     if data.header.control_flags & 0b01010 == 0b00010 {
                                         streams.insert(header_id.stream_id, StreamInfo {
-                                            opening_seq: header_id.seq,
                                             messenger: stream_send
                                         });
                                     }
 
-                                    let metadata = RPCMetadata { stream_id, client_id: client_id.clone(), seq: data.header.seq };
+                                    let metadata = RPCMetadata { stream_id, client_id: client_id.clone() };
 
                                     if let Some(procedures) = self.service_description.get(&service_name) {
                                         if procedures.contains(&procedure_name) {
@@ -400,21 +327,39 @@ impl<H: ServiceHandler + 'static, C: Codec + 'static> RiverServer<H, C> {
                         streams.remove(&ipc.stream_id);
                     }
 
-                    let mut message = ipc.message;
+                    let mut header = Header {
+                        stream_id: ipc.stream_id,
+                        id: generate_id(),
+                        to: client_id.clone(),
+                        from: "SERVER".to_string(),
+                        seq,
+                        // TODO: deal with ack correctly
+                        ack: 1,
 
-                    match &mut message {
-                        TransportMessage::Control(msg) => {
-                            msg.header.seq = seq;
-                        },
-                        TransportMessage::Request(msg) => {
-                            msg.header.seq = seq;
-                        },
-                    }
+                        control_flags: -1,
+                    };
 
                     seq += 1;
 
+                    let data = match ipc.message {
+                        SimpleOutgoingMessage::Control(control_flags, msg) => {
+                            header.control_flags = control_flags;
+                            self.codec.encode_to_vec(&TransportControlMessage {
+                                header,
+                                payload: msg,
+                            })?
+                        },
+                        SimpleOutgoingMessage::Request(control_flags, msg) => {
+                            header.control_flags = control_flags;
+                            self.codec.encode_to_vec(&TransportRequestMessage {
+                                header,
+                                inner: msg,
+                            })?
+                        },
+                    };
+
                     let to_send = WsMessage::Binary(Bytes::from_owner(
-                        self.codec.encode_to_vec(&message)?,
+                        data,
                     ));
 
                     socket.send(to_send).await?;

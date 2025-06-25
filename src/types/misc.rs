@@ -2,12 +2,10 @@
 
 use kanal::AsyncSender;
 
-use crate::types::TransportMessage;
+use crate::types::RequestInner;
 
 /// Used by the dispatcher to associate a `stream_id` with the needed metadata
 pub struct StreamInfo {
-    /// The `seq` of the initial message of the stream
-    pub opening_seq: i32,
     /// Channel to communicate with ongoing the procedure task
     pub messenger: AsyncSender<IncomingMessage>,
 }
@@ -28,14 +26,23 @@ pub struct RPCMetadata {
     pub stream_id: String,
     /// The id of the client who invoked the procedure
     pub client_id: String,
-    /// The `seq` of the initial message of the stream
-    pub seq: i32,
+}
+
+/// Simplified [`TransportMessage`](super::message_types::TransportMessage)
+///
+/// Used when communicating with the dispatcher. This enum is used because
+/// the dispatcher already sets up the [`Header`](super::message_types::Header)
+/// for outgoing messages.
+#[allow(missing_docs)]
+pub enum SimpleOutgoingMessage {
+    Control(i32, super::Control),
+    Request(i32, RequestInner),
 }
 
 /// Sent from `procedure -> dispatcher`
 pub struct OutgoingMessage {
     /// Message data to send
-    pub message: TransportMessage,
+    pub message: SimpleOutgoingMessage,
     /// The id of the stream that this message belongs to
     pub stream_id: String,
     /// Indicates if this is the last message of the stream

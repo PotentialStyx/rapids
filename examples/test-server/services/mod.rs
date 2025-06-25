@@ -2,10 +2,9 @@ use std::sync::Arc;
 
 use kanal::AsyncSender;
 use rapids_rs::{
-    dispatch::ServiceHandler,
     types::{OutgoingMessage, RPCMetadata},
+    utils,
 };
-use std::marker::PhantomData;
 #[allow(unused_imports)]
 use tracing::{debug, error, info, trace, warn};
 
@@ -13,20 +12,18 @@ pub mod adder;
 
 macro_rules! service_map {
     ( $( $name:ident ),* ) => {
-        pub struct ServiceMap<T: ServiceHandler> {
+        pub struct ServiceMap {
             $(
                 pub $name: Arc<$name::Service>,
-                _hidden: PhantomData<T>,
             )*
         }
 
-        impl<T: ServiceHandler> ServiceMap<T> {
+        impl ServiceMap {
             pub async fn new() -> anyhow::Result<Self> {
                 Ok(ServiceMap {
                     $(
-                        $name: Arc::new(<$name::Service as ServiceImpl<T>>::new().await?),
+                        $name: Arc::new(<$name::Service as ServiceImpl>::new().await?),
                     )*
-                    _hidden: PhantomData {},
                 })
             }
         }
@@ -35,7 +32,7 @@ macro_rules! service_map {
 
 service_map!(adder);
 
-pub trait ServiceImpl<T: ServiceHandler> {
+pub trait ServiceImpl {
     fn new() -> impl std::future::Future<Output = anyhow::Result<Self>> + Send + Sync
     where
         Self: Sized;
@@ -48,7 +45,7 @@ pub trait ServiceImpl<T: ServiceHandler> {
         let message = serde_json::json!({ "ok": true, "payload": payload });
 
         channel
-            .send(<T>::payload_to_msg(
+            .send(utils::payload_to_msg(
                 rapids_rs::types::ProcedureRes::Response(message),
                 metadata,
                 false,
