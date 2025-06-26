@@ -2,7 +2,7 @@ use std::sync::atomic::{AtomicI64, Ordering};
 
 use kanal::{AsyncReceiver, AsyncSender};
 
-use rapids_rs::types::{IncomingMessage, OutgoingMessage, RPCMetadata};
+use rapids::types::{IncomingMessage, OutgoingMessage, RPCMetadata};
 
 use super::ServiceImpl;
 use anyhow::format_err;

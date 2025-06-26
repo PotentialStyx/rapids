@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use kanal::AsyncSender;
-use rapids_rs::{
-    types::{OutgoingMessage, RPCMetadata},
+use rapids::{
+    types::{OutgoingMessage, ProcedureRes, RPCMetadata},
     utils,
 };
 #[allow(unused_imports)]
@@ -46,7 +46,7 @@ pub trait ServiceImpl {
 
         channel
             .send(utils::payload_to_msg(
-                rapids_rs::types::ProcedureRes::Response(message),
+                ProcedureRes::Response(message),
                 metadata,
                 false,
                 false,

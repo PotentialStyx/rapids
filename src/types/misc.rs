@@ -1,4 +1,4 @@
-//! Miscellaneous types used within rapids.rs
+//! Miscellaneous types used within Rapids
 
 use kanal::AsyncSender;
 

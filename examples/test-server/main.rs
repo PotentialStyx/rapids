@@ -2,7 +2,7 @@ mod services;
 use services::ServiceMap;
 
 use kanal::{AsyncReceiver, AsyncSender};
-use rapids_rs::{
+use rapids::{
     codecs::BinaryCodec,
     dispatch::{RiverServer, ServiceHandler},
     types::{IncomingMessage, OutgoingMessage, ProcedureRes, RPCMetadata},

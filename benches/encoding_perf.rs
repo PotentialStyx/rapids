@@ -1,5 +1,5 @@
 use criterion::{Criterion, criterion_group, criterion_main};
-use rapids_rs::{
+use rapids::{
     codecs::{BinaryCodec, Codec, NaiveCodec},
     types::{
         Control, ExpectedSessionState, HandshakeRequest, HandshakeResponse, HandshakeResponseOk,

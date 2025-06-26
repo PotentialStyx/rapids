@@ -32,8 +32,8 @@ pub enum Control {
 #[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct HandshakeRequest {
-    /// Expected protocol version, see [`rapids_rs::PROTOCOL_VERSION`](crate::PROTOCOL_VERSION) for the current protocol
-    /// version rapids.rs supports.
+    /// Expected protocol version, see [`rapids::PROTOCOL_VERSION`](crate::PROTOCOL_VERSION) for the current protocol
+    /// version Rapids supports.
     pub protocol_version: ProtocolVersion,
     /// Connection session, used for reconnects
     pub session_id: String,
@@ -41,7 +41,7 @@ pub struct HandshakeRequest {
     pub expected_session_state: ExpectedSessionState,
     /// Optional metadata sent from the client
     ///
-    /// As rapids.rs does not yet support custom handlers/middleware on connection,
+    /// As Rapids does not yet support custom handlers/middleware on connection,
     /// metadata passed in the handshake by a client is currently unreadable.
     pub metadata: Option<serde_json::Value>, // TODO: metadata as generic?
 }

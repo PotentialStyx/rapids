@@ -826,8 +826,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "rapids-rs"
-version = "0.3.0"
+name = "rapids"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "axum",
