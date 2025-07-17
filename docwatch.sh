@@ -1,1 +1,0 @@
-RUSTDOCFLAGS="--default-theme=ayu" cargo watch -x doc
