@@ -321,10 +321,22 @@ impl<H: ServiceHandler + 'static, C: Codec + 'static> RiverServer<H, C> {
                                         warn!(service = service_name, "Unknown Service");
                                     }
                                 } else {
-                                    error!("Non-existant stream but non-init message?");
+                                    error!("Non-existent stream but non-init message?");
                                 }
                             } else {
-                                warn!("TODO: deal with control messages?");
+                                let data: TransportControlMessage = self.codec.decode_slice(&data)?;
+
+                                match data.payload {
+                                    Control::Ack => {
+                                        debug!("Heartbeat Received");
+                                    }
+                                    Control::Close => {
+                                        error!("Client initiated closes should have been handled earlier, something went very wrong");
+                                    }
+                                    Control::HandshakeRequest(_) | Control::HandshakeResponse(_) => {
+                                        error!("Handshake message received after handshake complete");
+                                    }
+                                }
                             }
                         },
                         WsMessage::Close(_) => {
