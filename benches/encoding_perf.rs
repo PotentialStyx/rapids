@@ -1,9 +1,9 @@
 use criterion::{Criterion, criterion_group, criterion_main};
 use rapids::{
-    codecs::{BinaryCodec, Codec, NaiveCodec},
+    codecs::{BinaryCodec, NaiveCodec},
     types::{
-        Control, ExpectedSessionState, HandshakeRequest, HandshakeResponse, HandshakeResponseOk,
-        Header, ProtocolVersion, RiverResult, TransportControlMessage,
+        Codec, Control, ExpectedSessionState, HandshakeRequest, HandshakeResponse,
+        HandshakeResponseOk, Header, ProtocolVersion, RiverResult, TransportControlMessage,
     },
     utils::generate_id,
 };

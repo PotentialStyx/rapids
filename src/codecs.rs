@@ -1,26 +1,15 @@
-#![allow(missing_docs)] // TODO: finish documentation and remove this
-
+//! This module only contains the built-in codec implementations.
+//! The trait definition and more information can be found in the
+//! [`types::codecs`] module.
+//!
 //! # Built-in codecs
 //! - JSON: [`NaiveCodec`]
 //! - MessagePack: [`BinaryCodec`]
-//!
-//! ## What does a codec do?
-//! Codecs are used to transform messages into and from their
-//! over the wire representation.
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
-#[allow(clippy::missing_errors_doc)]
-pub trait Codec: Send + Sync + Copy {
-    fn decode_slice<'a, T>(&self, v: &'a [u8]) -> Result<T>
-    where
-        T: Deserialize<'a>;
-
-    fn encode_to_vec<T>(&self, value: &T) -> Result<Vec<u8>>
-    where
-        T: ?Sized + Serialize;
-}
+use crate::types::Codec;
 
 /// Basic codec that encodes messages as JSON using [`serde_json`]
 #[derive(Clone, Copy)]
@@ -80,7 +69,9 @@ impl Codec for BinaryCodec {
 /// DynCodec.
 #[derive(Clone, Copy)]
 pub enum DynCodec {
+    /// Binary codec
     Binary(BinaryCodec),
+    /// Naive (JSON) codec
     Naive(NaiveCodec),
 }
 

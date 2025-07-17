@@ -13,11 +13,13 @@
 //! it first as a normal [`RiverResult`]. To understand how to
 //! properly use the two types, read the [`result`] page.
 
+pub mod codecs;
 pub mod control;
 pub mod message_types;
 pub mod misc;
 pub mod result;
 
+pub use codecs::*;
 pub use control::*;
 pub use message_types::*;
 pub use misc::*;

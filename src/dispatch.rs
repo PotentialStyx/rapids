@@ -7,10 +7,9 @@
 // TODO: Real docs!!!!
 
 use crate::{
-    codecs::Codec,
     types::{
-        Control, HandshakeError, HandshakeRequest, HandshakeResponse, HandshakeResponseOk, Header,
-        HeaderID, IncomingMessage, OutgoingMessage, RPCMetadata, RequestInner, RiverResult,
+        Codec, Control, HandshakeError, HandshakeRequest, HandshakeResponse, HandshakeResponseOk,
+        Header, HeaderID, IncomingMessage, OutgoingMessage, RPCMetadata, RequestInner, RiverResult,
         SimpleOutgoingMessage, StreamInfo, TransportControlMessage, TransportRequestMessage,
     },
     utils::generate_id,
