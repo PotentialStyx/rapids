@@ -219,6 +219,15 @@ impl<H: ServiceHandler + 'static, C: Codec + 'static> RiverServer<H, C> {
         }
     }
 
+    async fn close_handler(streams: &mut HashMap<String, StreamInfo>, reason: &str) -> Result<()> {
+        for (key, entry) in streams.drain() {
+            debug!(stream_id = key, "Closing stream due to {reason}");
+            entry.messenger.send(IncomingMessage::ForceClose).await?;
+        }
+
+        Ok(())
+    }
+
     #[allow(clippy::too_many_lines)]
     async fn event_loop(
         self: Arc<Self>,
@@ -252,9 +261,22 @@ impl<H: ServiceHandler + 'static, C: Codec + 'static> RiverServer<H, C> {
 
                     let msg = match msg {
                         Ok(msg) => msg,
-                        Err(_err) => {
-                            error!("TODO: Implement WS loop error handling");
-                            return Ok(());
+                        Err(err) => {
+                            let error_message = err.to_string();
+
+                            if error_message.contains("Connection reset without closing handshake") {
+                                warn!("Client connection reset without closing handshake");
+
+                                Self::close_handler(&mut streams, "unexpected disconnect").await?;
+
+                                return Ok(());
+                            } else {
+                                error!("WebSocket error: {}", error_message);
+
+                                Self::close_handler(&mut streams, "websocket error").await?;
+
+                                return Ok(());
+                            }
                         },
                     };
 
@@ -306,11 +328,10 @@ impl<H: ServiceHandler + 'static, C: Codec + 'static> RiverServer<H, C> {
                             }
                         },
                         WsMessage::Close(_) => {
-                            info!(client_id, "Client Disconnected");
-                            for (key, entry) in streams.drain() {
-                                debug!(stream_id = key, client_id, "Closing stream due to disconnect");
-                                entry.messenger.send(IncomingMessage::ForceClose).await?;
-                            }
+                            info!("Client Disconnected");
+
+                            Self::close_handler(&mut streams, "disconnect").await?;
+
                             break;
                         },
                         _ => {
