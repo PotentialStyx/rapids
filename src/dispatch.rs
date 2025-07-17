@@ -29,6 +29,7 @@ use axum::{
 
 use kanal::{AsyncReceiver, AsyncSender};
 use tokio::time::{self, MissedTickBehavior};
+use tracing::{Instrument, Span, info_span};
 #[allow(unused_imports)]
 use tracing::{debug, error, info, trace, warn};
 
@@ -192,12 +193,16 @@ impl<H: ServiceHandler + 'static, C: Codec + 'static> RiverServer<H, C> {
             return;
         }
 
-        self.event_loop(socket, client_id, addr).await.unwrap();
+        let span = info_span!("event_loop", client_id, %addr);
+
+        self.event_loop(socket, client_id, addr, span.clone())
+            .instrument(span)
+            .await
+            .unwrap();
     }
 
     async fn heartbeats(
         sender: AsyncSender<OutgoingMessage>,
-        client_id: String,
         interval: Duration,
     ) -> anyhow::Result<()> {
         let mut interval = time::interval(interval);
@@ -208,7 +213,7 @@ impl<H: ServiceHandler + 'static, C: Codec + 'static> RiverServer<H, C> {
         loop {
             interval.tick().await;
 
-            debug!(client_id, "Sent Heartbeat");
+            debug!("Heartbeat Sent");
             sender
                 .send(OutgoingMessage {
                     message: SimpleOutgoingMessage::Control(0b0001, Control::Ack),
@@ -234,7 +239,9 @@ impl<H: ServiceHandler + 'static, C: Codec + 'static> RiverServer<H, C> {
         mut socket: WebSocket,
         client_id: String,
         addr: SocketAddr,
+        span: Span,
     ) -> Result<()> {
+        let _ = span;
         let _ = addr;
         let mut streams: HashMap<String, StreamInfo> = HashMap::new();
         let mut seq = 0;
@@ -243,12 +250,13 @@ impl<H: ServiceHandler + 'static, C: Codec + 'static> RiverServer<H, C> {
 
         if !self.heartbeat_interval.is_zero() {
             let send = send.clone();
-            let client_id = client_id.clone();
             let heartbeat_interval = self.heartbeat_interval;
 
-            tokio::spawn(
-                async move { Self::heartbeats(send, client_id, heartbeat_interval).await },
-            );
+            tokio::spawn(async move {
+                Self::heartbeats(send, heartbeat_interval)
+                    .instrument(span)
+                    .await
+            });
         }
 
         loop {
