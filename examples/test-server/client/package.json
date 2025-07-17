@@ -11,6 +11,7 @@
   "dependencies": {
     "@msgpack/msgpack": "^3.1.2",
     "@replit/river": "^0.209.1",
-    "@sinclair/typebox": "^0.34.35"
+    "@sinclair/typebox": "^0.34.35",
+    "@types/ws": "^8.18.1"
   }
 }
